@@ -1,0 +1,54 @@
+data = pd.read_csv("C:\\Users\\User\\Downloads\\stock_data.csv")
+
+
+data = data.iloc[::-1]
+
+closing_prices = data['Closing Price'].values.astype(float)
+
+scaler = MinMaxScaler()
+closing_prices_scaled = scaler.fit_transform(closing_prices.reshape(-1, 1))
+
+num_time_steps = 10  # Adjust this as needed
+pred_horizon = 1
+
+X, y = [], []
+for i in range(len(closing_prices_scaled) - num_time_steps - pred_horizon + 1):
+    X.append(closing_prices_scaled[i:i+num_time_steps])
+    y.append(closing_prices_scaled[i+num_time_steps+pred_horizon-1])
+
+X = np.array(X)
+y = np.array(y)
+
+split_ratio = 0.8
+split_index = int(split_ratio * len(X))
+X_train, X_test = X[:split_index], X[split_index:]
+y_train, y_test = y[:split_index], y[split_index:]
+
+model = Sequential([
+    LSTM(50, activation='relu', input_shape=(num_time_steps, 1)),
+    Dense(1)
+])
+
+model.compile(optimizer='adam', loss='mse')
+
+
+model.fit(X_train, y_train, epochs=50, batch_size=32, verbose=1)
+
+train_loss = model.evaluate(X_train, y_train, verbose=0)
+test_loss = model.evaluate(X_test, y_test, verbose=0)
+print(f'Train loss: {train_loss:.4f}')
+print(f'Test loss: {test_loss:.4f}')
+
+predictions = model.predict(X_test)
+
+predictions_original = scaler.inverse_transform(predictions)
+y_test_original = scaler.inverse_transform(y_test)
+
+plt.figure(figsize=(10, 6))
+plt.plot(y_test_original, label='Actual Prices')
+plt.plot(predictions_original, label='Predicted Prices')
+plt.xlabel('Time')
+plt.ylabel('Closing Price')
+plt.title('Stock Price Prediction')
+plt.legend()
+plt.show()
